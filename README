@@ -1,1 +1,15 @@
-First commit.
+TWS.Initializer
+TWS.Storage
+TWS.CSS
+TWS.Factory
+TWS.Gui.eventedComponent
+TWS.Gui.Window
+TWS.Gui.WindowTab
+TWS.Gui.MenuIcon
+TWS.Gui.ContentBlock
+TWS.Gui.List
+TWS.Gui.ListedInput
+TWS.Gui.TagEditor (30%)
+TWS.Notifications (10%)
+TWS.DuelSafer
+TWS.DuelSafer.Gui (40%)
