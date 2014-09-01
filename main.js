@@ -496,10 +496,10 @@ console.time("tws");
 				this.divMain.style.display = 'none';
 			},
 			_writeListeners: function() {
-				var that = this;
+				var self = this;
 				this.eventListeners.WINDOW_CLOSE = [];
 				this.addEventListener('WINDOW_CLOSE', function() {
-					that.hide();
+					self.hide();
 				});
 			},
 			addTab: function(tab) {
@@ -582,7 +582,6 @@ console.time("tws");
 		});
 		this.WindowTab = Class(this.eventedComponent, {
 			init: function(tabName, tabId) {
-				var that = this;
 				this.callParent();
 				this.divMain = $('<div>');
 				this.isVisible = false;
@@ -654,22 +653,22 @@ console.time("tws");
 
 				this.pseudoDiv.append(this.selectBox.getMainDiv());
 
-				var that = this;
+				var self = this;
 
 				this.pseudoDiv.hover(function() {
 					if (imagehoverable)
-						that.iconDiv.css("background-position", "-25px 0");
+						self.iconDiv.css("background-position", "-25px 0");
 					else
-						that.hoverDiv.show();
+						self.hoverDiv.show();
 				}, function() {
 					if (imagehoverable)
-						that.iconDiv.css("background-position", "0 0");
+						self.iconDiv.css("background-position", "0 0");
 					else
-						that.hoverDiv.hide();
+						self.hoverDiv.hide();
 				});
 
 				this.selectBox.addListener(function(i) {
-					that.buttons[i]();
+					self.buttons[i]();
 				});
 
 				this.hoverDiv.hide();
@@ -689,7 +688,7 @@ console.time("tws");
 			addAction: function(text, desc, onclick) {
 				var l = this.buttons.push(onclick),
 					pd = this.pseudoDiv,
-					that = this;
+					self = this;
 
 				this.selectBox.addItem(l-1, text, desc);
 				this._recreate();
@@ -698,7 +697,7 @@ console.time("tws");
 					var popup = new MousePopup(desc);
 					pd.addMousePopup(popup);
 					pd.click(function() {
-						that.buttons[0]();
+						self.buttons[0]();
 					});
 					pd.addClass("clickable");
 				} else if (l == 2) {
@@ -706,11 +705,11 @@ console.time("tws");
 					pd.removeMousePopup();
 					pd.removeClass("clickable");
 					pd.hover(function() {
-						that.selectBox.divMain.show();
-						that.hitBox.show();
+						self.selectBox.divMain.show();
+						self.hitBox.show();
 					}, function() {
-						that.selectBox.divMain.hide();
-						that.hitBox.hide();
+						self.selectBox.divMain.hide();
+						self.hitBox.hide();
 					});
 				}
 			}
@@ -732,7 +731,8 @@ console.time("tws");
 				this.title.html(name);
 			},
 			setMinidesc: function(text) {
-				this.miniDesc = this.miniDesc || $('<p class="tws_block_minidesc"></p>');
+				if (!this.miniDesc)
+					this.miniDesc = $('<p class="tws_block_minidesc"></p>').appendTo(this.divMain)
 				this.miniDesc.html(text);
 			},
 			append: function(el) {
@@ -744,7 +744,7 @@ console.time("tws");
 				autoJump: true
 			},
 			init: function(params) {
-				var that = this;
+				var self = this;
 				this.callParent(); // events: [keyup, keydown, focus, select]
 				this.params = params || {};
 				softExtend(this.params, this.default);
@@ -752,9 +752,9 @@ console.time("tws");
 				this.focused = false;
 				this.addEventListener('keydown', this.keyDownHandler, this);
 				$(document).keyup(function(e) {
-					that.focused && that.eventsChain.call('keyup', [e]);
+					self.focused && self.eventsChain.call('keyup', [e]);
 				}).keydown(function(e) {
-					that.focused && that.eventsChain.call('keydown', [e]);
+					self.focused && self.eventsChain.call('keydown', [e]);
 				});
 				params.class && this.divMain.addClass(params.class);
 			},
@@ -831,16 +831,16 @@ console.time("tws");
 				return this;
 			},
 			addItem: function(name) {
-				var that = this,
+				var self = this,
 					tmp = document.createElement('p');
 
 				tmp.innerHTML = name;
 				tmp.className = 'tws_list_item';
 				tmp.onmouseover = function() {
-					that._focusItem($(tmp));
+					self._focusItem($(tmp));
 				}
 				tmp.onmousedown = function() {
-					that._selectFocused();
+					self._selectFocused();
 					return false;
 				}
 				this.divMain[0].appendChild(tmp);
@@ -860,18 +860,17 @@ console.time("tws");
 			init: function(params) {
 				var self = this;
 				this.params = params || {};
-				softExtend(this.params, params);
+				softExtend(this.params, this.default);
 				this.callParent(this.params.id, 'text', this.params.class);
 				this.divMain.addClass('tws_li');
 				this.List = new that.List({class: 'tws_li_list', autoJump: this.params.autoJump});
 				this.eventsChain = new eventsChain(); // events: [input_keyup, input_blur, input_focus, input_select, list_select, input_changed, select]
-				this.textBefore = '';
 				this.divMain.append(this.List.getMainDiv());
 				/* Bindings */
 				this.addEventListener('input_keyup', this.keyUpHandler, this)
 					.addEventListener('input_blur', this.blurHandler, this)
 					.addEventListener('input_focus', this.focusHandler, this)
-					.addEventListener('list_select', this.selectHandler, this)
+					.addEventListener('input_changed', this.changedHandler, this)
 					.addEventListener('data_changed', this.dataChangedHandler, this)
 					.addEventListener('select', function(type, value) {
 						self.eventsChain.call(type + '_select', [value]);
@@ -883,10 +882,12 @@ console.time("tws");
 					self.eventsChain.call('select', ['list', el.html()]);
 				})
 				.addEventListener('focus', function(el) {
-					that.params.setValueOnFocus && that.setValue(el.html());
+					self.params.setValueOnFocus && self.setValue(el.html());
 				});
 
-				this.$('input').blur(function(e) {
+				this.$('input').on('input propertychange', function(e) {
+					self.eventsChain.call('input_changed', [e, self.getValue()]);	
+				}).blur(function(e) {
 					self.eventsChain.call('input_blur', [e]);
 				}).keyup(function(e) {
 					self.eventsChain.call('input_keyup', [e]);;
@@ -903,6 +904,10 @@ console.time("tws");
 				OK: "ok",
 				ERROR: 'error'
 			},
+			changedHandler: function(e, val) {
+				if (this.params.autoSearch && val != '')
+					this.seek();
+			},
 			keyUpHandler: function(e) {
 				var key = e.which || e.keyCode;
 
@@ -916,21 +921,13 @@ console.time("tws");
 
 				var	val = this.getValue();
 
-				// text changed
-				if (this.textBefore != val)
-					this.eventsChain.call('input_changed', [e, val]);
-
 				if (key == 13)
 					this.eventsChain.call('select', ['input', val]);
 				else if (val == '')
 					this.showAll()
-				else if (this.params.autoSearch)
-					this.seek();
-
-				this.textBefore = val;
 			},
 			seek: function(noTimeout) {
-				var that = this,
+				var self = this,
 					delay = this.params.searchDelay;
 
 				if (this.to)
@@ -938,11 +935,11 @@ console.time("tws");
 
 				if (delay && !noTimeout)
 					this.to = setTimeout(function() {
-						that.filter(this.getValue());
-						that.to = null;
+						self.filter(self.getValue());
+						self.to = null;
 					}, this.params.searchDelay);
 				else
-					that.filter(this.getValue());
+					self.filter(this.getValue());
 			},
 			dataChangedHandler: function() {
 				this.seek();
@@ -957,10 +954,10 @@ console.time("tws");
 				this.getValue() == '' && this.showAll();
 			},
 			addShowAll: function() {
-				var that = this;
+				var self = this;
 				this.showall = $('<div class="tws_li_showall"></div>');
 				this.showall.click(function() {
-					that.showAll();
+					self.showAll();
 				});
 				this.List.getMainDiv().before(this.showall);
 				return this;
@@ -980,13 +977,13 @@ console.time("tws");
 			},
 			_drawOptions: function(els) {
 				var	nodes = document.createDocumentFragment(),
-					that = this;
+					self = this;
 				this.List.clear();
 				each(els, function(el, name) {
-					that.List.addItem(name);
+					self.List.addItem(name);
 				});
 				if (this.params.autoSelectFirst)
-					that.List.focusFirst();
+					self.List.focusFirst();
 			},
 			setState: function(state) {
 				if (!this.STATES[state.toUpperCase()])
@@ -1022,30 +1019,93 @@ console.time("tws");
 		});
 		this.TagEditor = Class(this.eventedComponent, {
 			default: {
-				seperator: ',',
+				seperator: /\s*,\s*/,
+				autoSeparate: true,
 				caseSensetive: true,
 				highlightClass: 'tws_te_highlight',
 				customTags: false,
-				placeHolder: null
-			}
+				placeHolder: null,
+				addOnEnter: true
+			},
 			init: function(params) {
-				var that = this;
 				this.callParent(); // events: [added, deleted, clicked]
-				this.params = params;
+				this.params = params || {};
 				softExtend(this.params, this.default);
+				this.divMain = $('<div class="tws_te"></div>')
 				this.items = {};
-				this.input = new that.ListedInput(params);
+				this.input = new that.ListedInput(this.params);
+				this.input.addEventListener('input_changed', this.changedHandler, this);
+				this.input.addEventListener('select', this.selectHandler, this);
+				this.divMain.append(this.input.getMainDiv());
+			},
+			changedHandler: function(e, val) {
+				if (this.params.seperator != null && this.params.autoSeparate)
+					this._separate(val);
+			},
+			selectHandler: function(type, name) {
+				if (type == 'input' && this.params.addOnEnter)
+					this._separate(name);
+				else if (type == 'list')
+					this.addElement(name);
 			},
 			addElement: function(name, data) {
-				this.items[name] = data;
+				if (this.isExist(name))
+					return this._highlight(name);
+				this.items[name] = {
+					data: data,
+					node: this._createItem(name)
+				};
+				this.divMain.append(this.items[name].node);
+				this.eventsChain.call('added', [name]);
 				return this;
 			},
 			removeElement: function(name) {
-
+				this.items[name].node.remove();
+				delete this.items[name];
 				return this;
 			},
-			addElement: function() {
-
+			isExist: function(name) {
+				return this.items[name] !== undefined;
+			},
+			_separate: function(text) {
+				var parts = text.split(this.params.seperator),
+					self = this;
+				if (parts.length < 2)
+					return;
+				each(parts, function(part) {
+					part != '' && self.addElement(part);
+				});
+				this.input.setValue('');
+			},
+			_highlight: function(name) {
+				var el = this.items[name].node,
+					self = this;
+				function blink(time) {
+					if (time == 3)
+						return;
+					el.addClass(self.params.highlightClass);
+					setTimeout(function() {
+						el.removeClass(self.params.highlightClass);
+						setTimeout(function() {
+							blink(++time);
+						}, 175);
+					}, 175)
+				}
+				blink(0);
+			},
+			_createItem: function(name) {
+				var item = $('<div class="tws_te_item">' + name + '</div>'),
+					del = $('<div class="tws_te_delete"></div>'),
+					self = this;
+				item.click(function() {
+					self.eventsChain.call('clicked', [name]);
+				});
+				del.click(function() {
+					self.removeElement(name);
+					self.eventsChain.call('deleted', [name])
+				});
+				item.append(del);
+				return item;
 			}
 		});
 	}).addGui(function(main, control) {
@@ -1113,13 +1173,21 @@ console.time("tws");
 		'.tws_mi_hitbox { width: 50px; position: absolute; right: 0px; }\n' +
 		'.tws_mi_pseudo .arrow { width: 10px !important; height: 20px !important; background: url(' + to_cdn('images/tw2gui/selectbox_arrows.png') + ') !important; top: 7px !important; left: 167px !important; }\n' +
 
+		'.tws_list_item { height: 18px; }\n' +
+		'.tws_list_item.focus { border: 1px solid #000; padding-left: 2px; background: rgba(0,0,0,.1); }\n' +
+
 		'.tws_li { }\n' +
 		'.tws_li_showall { width: 24px; height: 24px; display: inline-block; margin-bottom: -7px; background: url(' + to_cdn('images/tw2gui/searchbar_button_all.png') +') no-repeat }\n' +
-		'.tws_li_list { background: url(' + to_cdn('images/tw2gui/textfield/textarea_bg.jpg') + '); display: none; position: absolute; }\n' +
+		'.tws_li_list { background: url(' + to_cdn('images/tw2gui/textfield/textarea_bg.jpg') + '); border: 1px solid #000; display: none; padding: 2px 4px 2px 4px; }\n' +
 		'.tws_li_status { width: 15px; height: 15px; display: inline-block; background-repeat: no-repeat; background-size: contain !important; margin-left: -22px; margin-bottom: -2px;  }\n' +
+		'.tws_li_highlight { background-color: rgba(255,255,255,.5); } \n' +
+		'.tws_li_default { background: none; }\n' +
 		'.tws_li_ok { background: url(' + to_cdn('images/window/dailyactivity/positive.png') + ') }\n' +
 		'.tws_li_error { background: url(' + to_cdn('images/window/dailyactivity/negative.png') + ') }\n' +
 		'.tws_li_loading { background: url(' + to_cdn('images/throbber2.gif') + '); width: 15.5px; height: 12px; margin-bottom: -1px; }\n' +
+
+		'.tws_te_item { display: inline-block; border: 1px solid #000; margin-left: 2px; padding: 2px; }\n' +
+		'.tws_te_highlight { background: rgba(255,255,255,.5); }\n' +
 
 		'.tws_block { margin: 5px; padding: 10px; border: 1px solid #000000; background: rgba(175, 146, 94, 0.5); -moz-border-radius: 10px; -webkit-border-radius: 10px; -khtml-border-radius: 10px; -o-border-radius: 10px; border-radius: 10px; }\n' + 
 		'.tws_block hr { height: 1px; border: 0px none; margin: 5px 0px 5px 0px; color: #000; background-color: #000;  box-shadow: 0px 1px 1px rgba(255, 255, 255, 0.6); }\n' +
@@ -1267,6 +1335,9 @@ console.time("tws");
 			else
 				start();
 		}
+		this.getTownsByName = function(name, cb) {
+			Ajax.remoteCallMode('ranking', 'get_data', {tab: 'cities', search: name}, cb);
+		}
 		this.overwriteStartDuel = function() {
 			SaloonWindow.startDuel = function(pid, alid, force, view) {
 
@@ -1315,12 +1386,12 @@ console.time("tws");
 
 			}
 		});
-		this.Block = Class(TWS.Gui.ContentBlock, {
+		this.DSBlock = Class(TWS.Gui.ContentBlock, {
 			init: function(id, cls) {
 				this.items = {};
 				this.callParent('tws_ds_block');
-				this.ListedInput = new TWS.Gui.ListedInput();
-				this.append(this.ListedInput.getMainDiv());
+				this.TagEditor = new TWS.Gui.TagEditor({setValueOnFocus: false, autoSeparate: false, addOnEnter: false});
+				this.append(this.TagEditor.getMainDiv());
 			},
 			updateAll: function() {
 				/* Обновить названия городов\альянсов */
@@ -1334,21 +1405,42 @@ console.time("tws");
 			}
 		});
 		this.Towns = {
+			wasDeleted: true,
 			block: function() {
-				var block = new that.Block('tws_ds_alliances'),
+				var block = new that.DSBlock('tws_ds_alliances'),
+					te = block.TagEditor,
 					blocks = m.getData().towns;
 
-				block.ListedInput.addEventListener('input_changed', this.searchAndShow, this, [block.ListedInput]);
+				block.setMinidesc('Alliances');
+				te.input.addEventListener('input_changed', this.searchAndShow, this, [block.TagEditor.input]);
+				te.input.addStatus();
 
 				return block.getMainDiv();
 
 			},
 			searchAndShow: function(li, e, text) {
-				console.log(text);
-				li.setState('loading');
-				setTimeout(function() {
-					li.setState('ok');
-				}, 1000)
+				if (text.length > 2 && this.wasDeleted) {
+					this.wasDeleted = false;
+					li.setState('loading');
+					clearTimeout(this.to);
+					this.to = setTimeout(function() {
+						Ajax.remoteCallMode('ranking', 'get_data', {tab: 'cities', search:text}, function(data) { 
+							if (data.error || !data.ranking.length)
+								li.setState('error');
+							else {
+								var temp_data = {};
+								each(data.ranking, function(el) {
+									temp_data[el.town_name] = el.town_x + "_" + el.town_y;
+								});
+								li.setData(temp_data);
+								li.setState('ok');
+							}
+						});
+					}, 500);
+				} else if (text.length < 3) {
+					li.setState('default');
+					this.wasDeleted = true;
+				}
 			}
 		}
 	}).addGui(function(main, m) {
