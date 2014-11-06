@@ -2,7 +2,7 @@
 // @name The-West Sweets Loader
 // @namespace TWS
 // @date 1 September, 2014.
-// @description The West Sweets script loader. No need to be updated. 
+// @description The West Sweets script loader. Not need to be updated. 
 // @author Shelimov
 // @version 1.0.0.0
 // @include http://*.the-west.*/game.php*

@@ -13,7 +13,7 @@ console.time("tws");
 		4.2 Предустановленные наборы на дежавю
 
 		5. DuelSafer добавь справку, улучши окно предупреждения.
-		6. WIR пофикси при поиске снизу листинг, при предметах больше 1к корректне отображние,
+		6. WIR пофикси при поиске снизу листинг, при предметах больше 1к корректное отображние,
 		   Избранные предметы. Можно еще расширить весь инвентарь
 	*/
 	var global = window // temp
@@ -128,13 +128,16 @@ console.time("tws");
 		}
 		function TWSClass() {}
 		function Factory() {
+			// make instance and return then
 			var factoryInstance = new TWSFactoryInstance(),
 				args = arguments;
+			// adds result object and factoryinstance link for the future
 			factoryInstance.data({
 				_result: new TWSClass(),
 				_fi: factoryInstance
 			});
 
+			// call all init methods
 			each(Factory.fn.FactoryMethods._initChain, function(fn) {
 				fn.apply(factoryInstance, args);
 			})
@@ -149,10 +152,12 @@ console.time("tws");
 	})();
 
 	// Define TWS.Initializer
+	// We need it to call functions only when the other part of API loaded.
 	global.TWS = {};
 	TWS.Initializer = new function() {
 		var that = this,
 			stack = {};
+			// return true if scope defined or function returns true
 			function checkScope(str) {
 				var parts = str.split('.'),
 					scope = global;
@@ -349,6 +354,12 @@ console.time("tws");
 					self.make();
 				}, false);
 			},
+			makeOn: function(after, timeout) {
+				var self = this;
+				TWS.Initializer.initAfter(after, function() {
+					self.make();
+				}, timeout);
+			},
 			make: function() {
 				var d = this.data(),
 					that = this,
@@ -399,7 +410,7 @@ console.time("tws");
 		this.init = function() {
 			if (!this.isExist('version'))
 				this.set('version', SCRIPT_VERSION);
-			if (!this.isExist('langauge'))
+			if (!this.isExist('language'))
 				this.set('language', SCRIPT_LANGUAGE);
 		}
 		this.set = function(key, value, namespace) {
@@ -1484,8 +1495,8 @@ console.time("tws");
 	}).addLangpack({
 		player_dont_have_town: "Нельзя нападать на персонажей без города!",
 		error_parse_town: "Не удалось прочитать город жертвы. Регулярное выражение вернуло NULL.",
-		error_already_defined: "Данный город\альянс уже присутствует в списке.",
-		error_not_found: "Данный город\альянс не найден",
+		error_already_defined: "Данный город\\альянс уже присутствует в списке.",
+		error_not_found: "Данный город\\альянс не найден",
 		error_wrong_argument: "Передан некорректный ТИП друга",
 		message_title: "Duel Safer",
 		attack_own_town: "Атаковать жителей своего города нельзя!",
@@ -1497,6 +1508,50 @@ console.time("tws");
 		victim_town: "Город: %1",
 		victim_alliance: "Альянс: %1"
 	}).makeOnApiLoad();
+
+	Factory(".Wir", function() {
+		var Scrollpane = new west.gui.Scrollpane(),
+			Overwrites = {
+				addItemDivToInv: function(item) {
+					item.appendTo(Scrollpane.contentPane).getImgEl().off('click').click(function(e) {
+						Inventory.clickHandler(item.getId(), e);
+					}).data('itemId', item.getId()).setDraggable(Inventory.announceDragStart, Inventory.announceDragStop);
+				},
+				addItems: function(original) {
+					return function(category, page) {
+						var divMain = $(Scrollpane.getMainDiv());
+						Scrollpane.contentPane.empty();
+						original.apply(this, arguments);
+						Scrollpane.scrollToTop();
+						if (category == "set") {
+							divMain.addClass("search");
+						} else {
+							divMain.removeClass("search");
+						}
+					};
+				}
+			};
+
+		this.init = function() {
+			Scrollpane.divMain.id = "fakebag";
+			Inventory.addItemDivToInv = Overwrites.addItemDivToInv;
+			Inventory.addItems = Overwrites.addItems(Inventory.addItems);
+			Inventory.size = 200;
+			Inventory.sizeSearch = 200;
+			Inventory.DOM.prepend(Scrollpane.getMainDiv());
+			Inventory.addItems("new");
+		}
+	}).addCss(
+		"#bag { display: none !important; }\n" +
+		"#overlay_inv { display: block !important; }\n" +
+		"#fakebag { margin-top: 129px; height: 304px; width: 260px; }\n" +
+		"#inv_search_button { top: 407px; left: 194px; }\n" +
+		"#search_div_inv { background-position: -30px -10px; width: 190px; height: 27px; top: 406px; left: 29px; }\n" +
+		"#inv_search_container { margin: -1px 0 0 0; }\n" +
+		"#delete_search { top: 410px; left: 225px; }\n" +
+		"#fakebag.search { height: 275px; }\n" +
+		"#fakebag .tw2gui_scrollpane_clipper_contentpane { overflow: hidden; }\n"
+	).makeOn(["Inventory.DOM"]);
 
 })(window); // anonymous
 console.timeEnd("tws")
