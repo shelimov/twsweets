@@ -2,11 +2,14 @@ console.time("tws");
 (function(global) {
 
 	/*
+		Fixes: 
+			Некорректно работает меню справа. Пофикси selectBox.
+
 		1. Сделать Notifications класс для одноразовых Notify
 		   Для постоянных Notify
 
-		2. Как насчет расширения чата через добавление видосиков с YouTube?
-		3. Как насчет переодевалки? Ну это мастхэв просто!
+		2. Как насчет расширение чата через добавление видосиков с YouTube?
+		3. Попробуй помутить переодевалку
 
 		4. DeluxeJobs:
 		4.1 Наборы работ
@@ -14,7 +17,7 @@ console.time("tws");
 
 		5. DuelSafer добавь справку, улучши окно предупреждения.
 		6. WIR пофикси при поиске снизу листинг, при предметах больше 1к корректное отображние,
-		   Избранные предметы. Можно еще расширить весь инвентарь
+		   Избранные предметы. Можно еще расширить весь инвентарь.
 	*/
 	var global = window // temp
 
@@ -128,7 +131,7 @@ console.time("tws");
 		}
 		function TWSClass() {}
 		function Factory() {
-			// make instance and return then
+			// make instance and return it
 			var factoryInstance = new TWSFactoryInstance(),
 				args = arguments;
 			// adds result object and factoryinstance link for the future
@@ -245,29 +248,20 @@ console.time("tws");
 				throw a;
 
 				return false;
-			},
-			_get: function(context) {
-				var result = {},
-					tmp = this._get;
-				delete this._get;
-				each(this, function(fn, name) {
-					result[name] = wrap(fn).bind(context);
-				});
-				this._get = tmp;
-
-				return result;
 			}
 		}
 
-		fns.FactoryMethods._initChain.push(function(namespace, instance) {
+		function ControlMethodsTunnel(name, args) {
+			return fns.ControlMethods[name].apply(this, Array.prototype.slice.call(arguments, 1));
+		}
 
+		fns.FactoryMethods._initChain.push(function(namespace, instance) {
 			this.data({
 				langpack: {},
 				callstacks: {gui: [], instance: []},
 				desc: { ns: namespace },
 				data: {},
-				inited: false,
-				ControlMethods: fns.ControlMethods._get(this)
+				inited: false
 			});
 
 			this.extend(instance);
@@ -279,9 +273,7 @@ console.time("tws");
 		extend(fns.FactoryMethods, {
 			addData: function(obj) {
 				var d = this.data();
-
 				extend(d.data, obj);
-
 				return this;
 			},
 			extend: function(input) {
@@ -313,15 +305,14 @@ console.time("tws");
 				return this;
 			},
 			_initGui: function(input) {
-
 				var self = this.data('_result'),
-					tmp = input.call(self.Gui, self, this.data('ControlMethods'));
+					tmp = input.call(self.Gui, self, ControlMethodsTunnel.bind(this));
 				if (typeof tmp === "object")
 					extend(self.Gui, tmp)
 			},
 			_initInstance: function(input) {
 				var self = this.data('_result'),
-					tmp = input.call(self, this.data('ControlMethods'))
+					tmp = input.call(self, ControlMethodsTunnel.bind(this));
 				if (typeof tmp === "object")
 					extend(self, tmp);	
 			},
@@ -405,13 +396,16 @@ console.time("tws");
 	})(Factory.fn);
 
 	Factory('.Storage', function(methods) {
-		var data = methods.getData().settings;
+		var data = methods("getData").settings;
 
 		this.init = function() {
-			if (!this.isExist('version'))
-				this.set('version', SCRIPT_VERSION);
-			if (!this.isExist('language'))
-				this.set('language', SCRIPT_LANGUAGE);
+			var self = this;
+			Factory.fn.FactoryMethods.defaultSettings = function(obj, namespace) {
+				namespace = namespace || this.data("desc").ns;
+				namespace[0] == '.' && namespace.slice(1);
+				self.setDefault(obj, namespace);
+				return this;
+			}
 		}
 		this.set = function(key, value, namespace) {
 			namespace = namespace || "common";
@@ -425,7 +419,12 @@ console.time("tws");
 		}
 		this.isExist = function(key, namespace) {
 			namespace = namespace || "common";
-			return data[namespace] && isDef(data[namespace][key]);
+			return data[namespace] && (key && isDef(data[namespace][key]) || true);
+		}
+		this.setDefault = function(obj, namespace) {
+			data[namespace] = data[namespace] || {};
+			softExtend(data[namespace], obj);
+			localStorage.setItem("TWSweets", JSON.stringify(data));
 		}
 	}).addData({
 		settings: JSON.parse(localStorage.getItem('TWSweets')) || {}
@@ -441,7 +440,7 @@ console.time("tws");
 			css.innerHTML = css.innerHTML.replace(from, to);
 		}
 
-		Factory.fn.FactoryMethods["addCss"] = function(css) {
+		Factory.fn.FactoryMethods.addCss = function(css) {
 			that.append(this.data("desc").ns, css);
 
 			return this;
@@ -490,7 +489,7 @@ console.time("tws");
 				this.isVisible = false;
 				this.title = title;
 				var w = wman.open(id, title, classes);
-				this.hide = wrap(this.hide).bind(this);
+				//this.hide = wrap(this.hide).bind(this);
 				w.destroy = this.hide;
 
 				for (var i in w)
@@ -504,6 +503,7 @@ console.time("tws");
 
 				this._writeListeners();
 				WestUi.WindowBar.onWindowDestroy(this.id);
+				this.divMain.style.visibility = 'hidden';
 				this.divMain.style.display = 'none';
 			},
 			_writeListeners: function() {
@@ -515,13 +515,13 @@ console.time("tws");
 			},
 			addTab: function(tab) {
 				if (!(tab instanceof that.WindowTab))
-					return control.throwError("arguments isn't instanceof WindowTab");
+					return control("throwError", "arguments aren't instanceof WindowTab")
 
 				var tabId = tab.getId(),
 					self = this;
 
 				if (this.tabIds[tabId])
-					return control.throwError("tab already defined");
+					return control("throwError", "tab already defined");
 
 				this._super.prototype.addTab.call(this, tab.getName(), tabId, function() {
 					self.open(tabId);
@@ -531,7 +531,7 @@ console.time("tws");
 			},
 			openTab: function(tabId) {
 				if (!this.tabIds[tabId])
-					return control.throwError("tab doesn't exist");
+					return control("throwError", "tab doesn't exist");
 
 				var tabObject = this.tabIds[tabId].tabObject;
 				each(this.tabIds, function(tab, tid) {
@@ -561,11 +561,16 @@ console.time("tws");
 				if (this.isVisible)
 					return;
 
-			    document.getElementById("windows").appendChild(this.divMain);
-				if (Config.get("gui.main.animations")) {
-			        $(this.divMain).fadeIn("fast")
-			    } else
+			    document.getElementById('windows').appendChild(this.divMain);
+				if (Config.get('gui.main.animations')) {
+					this.divMain.style.visibility = 'visible';
+					this.divMain.style.display = 'none';
+			        $(this.divMain).fadeIn('fast')
+			    } else {
 			    	this.divMain.style.display = 'block';
+			    	this.divMain.style.visibility = 'visible';
+			    }
+
 				
 				WestUi.WindowBar.onWindowOpen(this.id, this);
 
@@ -679,6 +684,7 @@ console.time("tws");
 				});
 
 				this.selectBox.addListener(function(i) {
+					console.log(i);
 					self.buttons[i]();
 				});
 
@@ -706,15 +712,16 @@ console.time("tws");
 
 				if (l == 1) {
 					var popup = new MousePopup(desc);
-					pd.addMousePopup(popup);
-					pd.click(function() {
-						self.buttons[0]();
-					});
-					pd.addClass("clickable");
+					this.iconDiv.addMousePopup(popup)
+						.click(function() {
+							self.buttons[0]();
+						})
+						.addClass("clickable");
 				} else if (l == 2) {
 					pd.append(this.hitBox);
-					pd.removeMousePopup();
-					pd.removeClass("clickable");
+					this.iconDiv.removeMousePopup()
+						.removeClass("clickable")
+						//.off("click");
 					pd.hover(function() {
 						self.selectBox.divMain.show();
 						self.hitBox.show();
@@ -1123,11 +1130,11 @@ console.time("tws");
 		this.Common = {
 			get: getWholeADom,
 			chooseLang: function() {
-				return $('<p>' + control.langPack("choose_lang") + ':</p>');
+				return $('<p>' + control("langPack", "choose_lang") + ':</p>');
 			},
 			langSelect: function() {
 				var currentLanguage = TWS.Storage.get('language'),
-					langPack = control.langPack('availableLangs'),
+					langPack = control("langPack", 'availableLangs'),
 					langSelect = new west.gui.Combobox("tws_changelang").addListener(select);
 
 				each(langPack, function(transl, name) {
@@ -1143,19 +1150,19 @@ console.time("tws");
 	}).addGui(function(main, control) {
 		var mainWindow = new this.Window('tws', 'The West Sweets', 'noreload', 'TWS'),
 			MI = new this.MenuIcon('http://tws.shelimov.me/images/icon.png', false),
-			mainTab = new this.WindowTab(control.langPack('common_settings'), 'main', mainWindow),
-			mods = new this.ContentBlock(null, control.langPack('mods_settings')),
+			mainTab = new this.WindowTab(control("langPack", 'common_settings'), 'main', mainWindow),
+			mods = new this.ContentBlock(null, control("langPack", 'mods_settings')),
 			self = this;
 
 		this.init = function() {
-			mainTab.setTitle(control.langPack('common_settings_title'));
+			mainTab.setTitle(control("langPack", 'common_settings_title'));
 			mainTab.setMiniTitle("Main");
 			mainTab.append(this.Common.get()).append(mods.getMainDiv());
 			this.addTab(mainTab);
 		}
 		this.addTab = function(tab) {
 			mainWindow.addTab(tab);
-			MI.addAction(tab.getName(), s(control.langPack("open_tab"), tab.getName()), function() {
+			MI.addAction(tab.getName(), s(control("langPack", "open_tab"), tab.getName()), function() {
 				self.open(tab.getId());
 			});
 		}
@@ -1163,7 +1170,6 @@ console.time("tws");
 			tid = tid || "main";
 			mainWindow.open(tid);
 		}
-			
 		this.getMods = function() {
 			return mods;
 		}
@@ -1173,7 +1179,21 @@ console.time("tws");
 		this.getMainTab = function() {
 			return mainTab;
 		}
-	}).addCss(
+	}).addLangpack({
+		common_settings: 'Общие',
+		common_settings_title: 'Общие настройки',
+		mods_settings: 'Модификации',
+		open_tab: 'Открыть вкладку "%1"',
+		choose_lang: "Выбрать язык",
+		availableLangs: {
+			ru: "Русский",
+			en: "English"
+		}
+	}).defaultSettings({
+		laguage: "en",
+		version: SCRIPT_VERSION
+	}, "common"
+	).addCss(
 		'.tws .tw2gui_window_tab_control_clipper { display: none; }\n' +
 		'.tws #main { margin: 10px 5px 0 5px }\n' +
 		'.tws #main .tws_block { width: 45%; float: left; }\n' +
@@ -1203,25 +1223,15 @@ console.time("tws");
 		'.tws_block { margin: 5px; padding: 10px; border: 1px solid #000000; background: rgba(175, 146, 94, 0.5); -moz-border-radius: 10px; -webkit-border-radius: 10px; -khtml-border-radius: 10px; -o-border-radius: 10px; border-radius: 10px; }\n' + 
 		'.tws_block hr { height: 1px; border: 0px none; margin: 5px 0px 5px 0px; color: #000; background-color: #000;  box-shadow: 0px 1px 1px rgba(255, 255, 255, 0.6); }\n' +
 		'.tws_block_minidesc { position: absolute; right: 4px; top: 1px; font-size: 6pt; }\n' 
-	).addLangpack({
-		common_settings: 'Общие',
-		common_settings_title: 'Общие настройки',
-		mods_settings: 'Модификации',
-		open_tab: 'Открыть вкладку "%1"',
-		choose_lang: "Выбрать язык",
-		availableLangs: {
-			ru: "Русский",
-			en: "English"
-		}
-	}).makeOnApiLoad();
+	).makeOnApiLoad();
 
 	Factory('.Notifications', function(control) {
-		var messages = control.getData("messages");
+		var messages = control("getData", "messages");
 
 		this.show = function(el, unique_name) {
 			if (messages[unique_name])
 				return;
-			el.addButton(control.langPack('close'), function() {
+			el.addButton(control("langPack", 'close'), function() {
 				messages[unique_name] = true;
 				TWS.Storage.set(unique_name, true, "Notifications")
 			})
@@ -1248,12 +1258,12 @@ console.time("tws");
 
 
 	Factory('.DuelSafer', function(methods) {
-		var data = methods.getData(),
-			namespace = methods.getDesc().ns,
+		var data = methods("getData"),
+			namespace = methods("getDesc").ns,
 			self = this;
 
 		function error(err, fatal) {
-			TWS.Notifications.error(methods.langPack(err), namespace, fatal);
+			TWS.Notifications.error(methods("langPack", err), namespace, fatal);
 
 			return false;
 		}
@@ -1409,7 +1419,7 @@ console.time("tws");
 			},
 			addItem: function(item) {
 				if (!(item instanceof self.Item))
-					m.throwError("item isn't instanceof Item");
+					m("throwError", "item isn't instanceof Item");
 
 				this.items[item.getId()] = item;
 				this.divMain.append(item.getMainDiv());
@@ -1420,7 +1430,7 @@ console.time("tws");
 			block: function() {
 				var block = new that.DSBlock('tws_ds_alliances'),
 					te = block.TagEditor,
-					blocks = m.getData().towns;
+					blocks = m("getData").towns;
 
 				block.setMinidesc('Alliances');
 				te.input.addEventListener('input_changed', this.searchAndShow, this, [block.TagEditor.input]);
@@ -1468,7 +1478,7 @@ console.time("tws");
 		}
 		this.ask = function(istown, own, cb, name) {
 			var message,
-				lp = m.langPack,
+				lp = m("langPack"),
 				whoisit = $('<p></p>'),
 				dialog = new west.gui.Dialog(lp('message_title'));
 			if (own) {
@@ -1488,7 +1498,6 @@ console.time("tws");
 			}
 			console.log(message);
 		}
-
 	}).addData({
 		alliances: TWS.Storage.get("alliances", "DuelSafer") || {},
 		towns: TWS.Storage.get("towns", "DuelSafer") || {}
@@ -1509,8 +1518,8 @@ console.time("tws");
 		victim_alliance: "Альянс: %1"
 	}).makeOnApiLoad();
 
-	Factory(".Wir", function() {
-		var Scrollpane = new west.gui.Scrollpane(),
+	Factory(".Wir", function(control) {
+		var Scrollpane,
 			Overwrites = {
 				addItemDivToInv: function(item) {
 					item.appendTo(Scrollpane.contentPane).getImgEl().off('click').click(function(e) {
@@ -1529,29 +1538,39 @@ console.time("tws");
 							divMain.removeClass("search");
 						}
 					};
-				}
+				},
+				firstLoad: function(original) {
+					return function(opts) {
+						Scrollpane = new west.gui.Scrollpane();
+						Scrollpane.divMain.id = "fakebag";
+						original.apply(this, arguments);
+						Inventory.DOM.prepend(Scrollpane.getMainDiv());
+					}
+				} 
 			};
 
 		this.init = function() {
-			Scrollpane.divMain.id = "fakebag";
+			var SIZE = 90000;
 			Inventory.addItemDivToInv = Overwrites.addItemDivToInv;
 			Inventory.addItems = Overwrites.addItems(Inventory.addItems);
-			Inventory.size = 200;
-			Inventory.sizeSearch = 200;
-			Inventory.DOM.prepend(Scrollpane.getMainDiv());
-			Inventory.addItems("new");
+			Inventory.firstLoad = Overwrites.firstLoad(Inventory.firstLoad);
+			Inventory.size = SIZE;
+			Inventory.sizeSearch = SIZE;
 		}
+	}).defaultSettings({
+		enabled: true,
+		mode: 4
 	}).addCss(
 		"#bag { display: none !important; }\n" +
 		"#overlay_inv { display: block !important; }\n" +
-		"#fakebag { margin-top: 129px; height: 304px; width: 260px; }\n" +
+		"#fakebag { margin-top: 129px; height: 305px; width: 260px; }\n" +
 		"#inv_search_button { top: 407px; left: 194px; }\n" +
 		"#search_div_inv { background-position: -30px -10px; width: 190px; height: 27px; top: 406px; left: 29px; }\n" +
 		"#inv_search_container { margin: -1px 0 0 0; }\n" +
 		"#delete_search { top: 410px; left: 225px; }\n" +
 		"#fakebag.search { height: 275px; }\n" +
 		"#fakebag .tw2gui_scrollpane_clipper_contentpane { overflow: hidden; }\n"
-	).makeOn(["Inventory.DOM"]);
+	).makeOnApiLoad();
 
 })(window); // anonymous
 console.timeEnd("tws")
