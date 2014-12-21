@@ -1,15 +1,20 @@
-TWS.Initializer
-TWS.Storage
-TWS.CSS
-TWS.Factory
-TWS.Gui.eventedComponent
-TWS.Gui.Window
-TWS.Gui.WindowTab
-TWS.Gui.MenuIcon
-TWS.Gui.ContentBlock
-TWS.Gui.List
-TWS.Gui.ListedInput
-TWS.Gui.TagEditor (30%)
-TWS.Notifications (10%)
-TWS.DuelSafer
-TWS.DuelSafer.Gui (40%)
+West Inventory Enhanced (WIR):
+  Reducer (100%)
+  Favorite items (0%)
+  UI (0%)
+Deluxe Jobs:
+  Parser (15%)
+  Filter (0%)
+  Favorite jobs (0%)
+  UI:
+    Map (100%)
+    Control (0%)
+    Filter (40%)
+    Favorite jobs (0%)
+DuelSafer:
+  Alliance\Town parser (100%)
+  Check function (100%)
+  UI:
+    Search (80%)
+    Warn (10%)
+Health\Energy Timelefters (0%)
